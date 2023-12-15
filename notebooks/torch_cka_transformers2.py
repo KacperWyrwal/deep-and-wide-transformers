@@ -357,7 +357,8 @@ def get_pattern(encoder_self_attention=True,
     if encoder_self_attention:
         patterns.append(r'encoder\.block\.\d+\.layer\.\d+\.SelfAttention\.(q|k|v|o)')
     if encoder_fc:
-        patterns.append(r'encoder\.block\.\d+\.layer\.\d+\.DenseReluDense\.(wi|wo)')
+        # wi_0, wi_1 is for flan_t5 
+        patterns.append(r'encoder\.block\.\d+\.layer\.\d+\.DenseReluDense\.(wi|wi_0|wi_1|wo)')
 
     # Patterns for decoder
     if decoder_self_attention:
