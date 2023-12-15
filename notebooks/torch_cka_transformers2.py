@@ -389,7 +389,7 @@ def main(
         model2_name: str, 
         batch_size: int = 8, 
         num_batches: int = -1, 
-        device: str | None = None, 
+        device: str = None, 
         save_path: str = './',
     ): 
     if device is None: 
