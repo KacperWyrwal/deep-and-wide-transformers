@@ -395,6 +395,8 @@ def main(
     if device is None: 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+    print(f"DEVICE SET TO {device.upper()}".center(100, "-"))
+
     dataset = load_translation_dataset()
  
     model1, tokenizer1 = load_model_and_tokenizer(model1_name)
