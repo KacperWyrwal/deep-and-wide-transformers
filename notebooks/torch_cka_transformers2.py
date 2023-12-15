@@ -340,7 +340,7 @@ def get_dataloader(dataset, batch_size: int = 8, num_batches: int = -1, drop_las
     return DataLoader(dataset, batch_size=batch_size, drop_last=drop_last) 
 
 
-def match_module_names_from_pattern(model: nn.Module, pattern: str) -> list[str]:
+def match_module_names_from_pattern(model: nn.Module, pattern: str):
     if isinstance(pattern, str): 
         pattern = re.compile(pattern)
     return [name for name, _ in model.named_modules() if pattern.match(name)]
