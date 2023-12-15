@@ -31,6 +31,8 @@ class CKAGatherer:
             device: str = 'cpu', 
             model1_mode: bool = 'hf', 
             model2_mode: bool = 'hf',
+            model1_num_new_tokens: int = 10, 
+            model2_num_new_tokens: int = 10,
             ):
         """
         :param model1: (nn.Module) Neural Network 1
@@ -43,6 +45,8 @@ class CKAGatherer:
         self.model2 = model2
         self.model1_mode = model1_mode
         self.model2_mode = model2_mode
+        self.model1_num_new_tokens = model1_num_new_tokens
+        self.model2_num_new_tokens = model2_num_new_tokens
         self.device = device
 
         self.model1 = self.model1.to(self.device)
@@ -60,32 +64,40 @@ class CKAGatherer:
     def __iter__(self):
         return self
 
-    def next_hf(self, model, iterator): 
+    def next_hf(self, model, iterator, num_new_tokens: int): 
         input_dict = next(iterator)
         input_ids, attention_mask = input_dict['input_ids'], input_dict['attention_mask']
-        return model.generate(input_ids=input_ids.to(self.device), attention_mask=attention_mask.to(self.device), max_new_tokens=10)
+        return model.generate(
+            input_ids=input_ids.to(self.device), 
+            attention_mask=attention_mask.to(self.device), 
+            max_new_tokens=num_new_tokens,
+        )
     
-    def next(self, model, iterator, model_mode): 
+    def next(self, model, iterator, model_mode, num_new_tokens: int): 
         if model_mode == 'hf': 
-            return self.next_hf(model, iterator)
+            return self.next_hf(model, iterator, num_new_tokens=num_new_tokens)
         else: 
             return model(next(iterator).to(self.device))
 
     def __next__(self):
-        res1 = self.next(self.model1, self.iterator1, self.model1_mode)
-        res2 = self.next(self.model2, self.iterator2, self.model2_mode)
+        res1 = self.next(self.model1, self.iterator1, self.model1_mode, self.model1_num_new_tokens)
+        res2 = self.next(self.model2, self.iterator2, self.model2_mode, self.model2_num_new_tokens)
         return res1, res2
 
 
 class CKA:
-    def __init__(self,
-                 model1: nn.Module,
-                 model2: nn.Module,
-                 model1_name: str = None,
-                 model2_name: str = None,
-                 model1_layers: List[str] = None,
-                 model2_layers: List[str] = None,
-                 device: str ='cpu'):
+    def __init__(
+            self,
+            model1: nn.Module,
+            model2: nn.Module,
+            model1_name: str = None,
+            model2_name: str = None,
+            model1_layers: List[str] = None,
+            model2_layers: List[str] = None,
+            model1_num_new_tokens: int = 10,
+            model2_num_new_tokens: int = 10,
+            device: str ='cpu'
+        ):
         """
 
         :param model1: (nn.Module) Neural Network 1
@@ -98,6 +110,8 @@ class CKA:
         """
 
         self.model1 = model1
+        self.model1_num_new_tokens = model1_num_new_tokens
+        self.model2_num_new_tokens = model2_num_new_tokens
         self.model2 = model2
 
         self.device = device
@@ -225,7 +239,12 @@ class CKA:
 
         num_batches = min(len(dataloader1), len(dataloader1))
 
-        gatherer = CKAGatherer(self.model1, self.model2, dataloader1, dataloader2, self.device)
+        gatherer = CKAGatherer(
+            self.model1, self.model2, dataloader1, dataloader2, 
+            model1_num_new_tokens=self.model1_num_new_tokens,
+            model2_num_new_tokens=self.model2_num_new_tokens,
+            device=self.device,
+        )
         for _ in tqdm(gatherer, desc="| Comparing features |", total=num_batches):
             for i, (name1, feat1) in enumerate(self.model1_features.items()):
                 X = feat1.flatten(1)
@@ -387,6 +406,8 @@ def get_module_names(
 def main(
         model1_name: str, 
         model2_name: str, 
+        model1_num_new_tokens: int = 10,
+        model2_num_new_tokens: int = 10,
         batch_size: int = 8, 
         num_batches: int = -1, 
         device: str = None, 
@@ -411,6 +432,8 @@ def main(
         model2_name=model2_name, 
         model1_layers=model1_layers, 
         model2_layers=model2_layers,
+        model1_num_new_tokens=model1_num_new_tokens,
+        model2_num_new_tokens=model2_num_new_tokens,
         device=device, 
     )
 
@@ -430,13 +453,16 @@ def main(
     cka.compare(dataloader1=dataloader1, dataloader2=dataloader2)
 
     # log and plot 
-    title = f"{model1_name}-vs-{model2_name.replace('/', '_')}"
-    directory = os.path.join(save_path, title)
+    title = f"{model1_name.replace('/', '_')} ({model1_num_new_tokens} tokens) vs {model2_name.replace('/', '_')} ({model2_num_new_tokens} tokens)"
+    directory = os.path.join(
+        save_path, 
+        title.replace(' ', '_').replace('(', '').replace(')', ''),
+    )
     save_path = get_next_version_dir(directory)
     os.makedirs(save_path, exist_ok=False) # This directory should not exist, since we just created the next version
 
     # Save plot and cka results
-    cka.plot_results(save_path=os.path.join(save_path, 'heatmap.png'))
+    cka.plot_results(save_path=os.path.join(save_path, 'heatmap.png'), title=title)
     torch.save(cka.export(), os.path.join(save_path, 'cka.pt'))
     # with open(os.path.join(save_path, 'cka.json'), 'w') as f: 
     #     json.dump(cka.export(), f)
@@ -447,6 +473,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare two models using CKA.")
     parser.add_argument("--model1", default='t5-small', help="Path to the first model", type=str)
     parser.add_argument("--model2", default='t5-small', help="Path to the second model", type=str)
+    parser.add_argument("--model1_num_new_tokens", default=1, type=int)
+    parser.add_argument("--model2_num_new_tokens", default=1, type=int)
     parser.add_argument("--batch_size", default=8, type=int)
     parser.add_argument("--num_batches", default=-1, type=int)
     parser.add_argument("--device", default=None, type=str)
@@ -454,11 +482,22 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     model1_name = args.model1
+    model1_num_new_tokens = args.model1_num_new_tokens
+    model2_num_new_tokens = args.model2_num_new_tokens
     model2_name = args.model2 
     batch_size = args.batch_size
     num_batches = args.num_batches 
     device = args.device 
+    # For some reason printing num_batches in Eddie silently crashes the program
     # print(f"ARGUMENTS: {model1_name=}, {model2_name=}, {batch_size=}, {num_batches=}, {device=}")
     print(f"ARGUMENTS: {model1_name=}, {model2_name=}, {batch_size=}")
 
-    main(args.model1, args.model2, args.batch_size, args.num_batches, args.device)
+    main(
+        model1_name=model1_name,
+        model2_name=model2_name,
+        model1_num_new_tokens=model1_num_new_tokens,
+        model2_num_new_tokens=model2_num_new_tokens,
+        batch_size=batch_size,
+        num_batches=num_batches,
+        device=device,
+    )
