@@ -458,6 +458,7 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     num_batches = args.num_batches 
     device = args.device 
-    print(f"ARGUMENTS: {model1_name=}, {model2_name=}, {batch_size=}, {num_batches=}, {device=}")
+    # print(f"ARGUMENTS: {model1_name=}, {model2_name=}, {batch_size=}, {num_batches=}, {device=}")
+    print(f"ARGUMENTS: {model1_name=}, {model2_name=}, {batch_size=}")
 
     main(args.model1, args.model2, args.batch_size, args.num_batches, args.device)
