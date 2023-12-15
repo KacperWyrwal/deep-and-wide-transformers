@@ -443,6 +443,7 @@ def main(
 
 
 if __name__ == "__main__":
+    print(f"ENTERING MAIN".center(100, '-'))
     parser = argparse.ArgumentParser(description="Compare two models using CKA.")
     parser.add_argument("--model1", default='t5-small', help="Path to the first model", type=str)
     parser.add_argument("--model2", default='t5-small', help="Path to the second model", type=str)
